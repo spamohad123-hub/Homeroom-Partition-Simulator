@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Partition Simulator</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      margin: 0;
+      background: #f5f7fb;
+      color: #333;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: auto;
+      padding: 20px;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .card {
+      background: white;
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      margin-bottom: 20px;
+    }
+
+    .people-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 15px;
+    }
+
+    .person-box {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 10px;
+      background: #fafafa;
+    }
+
+    .person-box h3 {
+      margin-top: 0;
+      font-size: 16px;
+    }
+
+    input {
+      width: 100%;
+      margin-top: 5px;
+      padding: 6px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      padding: 10px 15px;
+      border: none;
+      border-radius: 6px;
+      background: #4a90e2;
+      color: white;
+      cursor: pointer;
+      font-size: 14px;
+      margin-right: 10px;
+    }
+
+    button:hover {
+      background: #357bd8;
+    }
+
+    pre {
+      background: #f0f0f0;
+      padding: 10px;
+      border-radius: 6px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>Group Partition Simulator</h1>
+
+  <div class="card">
+    <label>Number of people:</label>
+    <input type="number" id="numPeople" value="7" min="2" />
+    <br><br>
+    <button onclick="generateInputs()">Generate Inputs</button>
+    <button id="recommendedBtn" onclick="fillRecommended()" style="display:none;">Fill Recommended Choices</button>
+  </div>
+
+  <div class="card">
+    <h2>Define Choices</h2>
+    <div id="peopleContainer" class="people-grid"></div>
+    <br>
+    <button onclick="runSimulation()">Run Simulation</button>
+  </div>
+
+  <div class="card">
+    <h2>Results</h2>
+    <div id="output"></div>
+  </div>
+</div>
+
+<script>
+let N = 7;
+
+function generateInputs() {
+  N = parseInt(document.getElementById("numPeople").value);
+  const container = document.getElementById("peopleContainer");
+  container.innerHTML = "";
+
+  // Show recommended button only for 7
+  document.getElementById("recommendedBtn").style.display = (N === 7) ? "inline-block" : "none";
+
+  for (let i = 1; i <= N; i++) {
+    const div = document.createElement("div");
+    div.className = "person-box";
+
+    div.innerHTML = `
+      <h3>Person ${i}</h3>
+      <input placeholder="Pick 1" id="p${i}a" />
+      <input placeholder="Pick 2" id="p${i}b" />
+      <input placeholder="Pick 3" id="p${i}c" />
+    `;
+
+    container.appendChild(div);
+  }
+}
+
+function fillRecommended() {
+  if (N !== 7) return;
+
+  const choices = {
+    1: [2,3,4],
+    2: [3,4,5],
+    3: [4,5,6],
+    4: [5,6,7],
+    5: [6,7,1],
+    6: [7,1,2],
+    7: [1,2,3]
+  };
+
+  for (let i = 1; i <= 7; i++) {
+    document.getElementById(`p${i}a`).value = choices[i][0];
+    document.getElementById(`p${i}b`).value = choices[i][1];
+    document.getElementById(`p${i}c`).value = choices[i][2];
+  }
+}
+
+function getChoices() {
+  const choices = {};
+
+  for (let i = 1; i <= N; i++) {
+    const a = parseInt(document.getElementById(`p${i}a`).value);
+    const b = parseInt(document.getElementById(`p${i}b`).value);
+    const c = parseInt(document.getElementById(`p${i}c`).value);
+
+    choices[i] = [a, b, c].filter(x => !isNaN(x));
+  }
+
+  return choices;
+}
+
+function generatePartitions(arr) {
+  if (arr.length === 0) return [[]];
+
+  const first = arr[0];
+  const rest = generatePartitions(arr.slice(1));
+  const result = [];
+
+  rest.forEach(partition => {
+    for (let i = 0; i < partition.length; i++) {
+      const newPartition = partition.map(g => [...g]);
+      newPartition[i].unshift(first);
+      result.push(newPartition);
+    }
+    result.push([[first], ...partition]);
+  });
+
+  return result;
+}
+
+function isValidPartition(partition, choices) {
+  for (const group of partition) {
+    for (const person of group) {
+      const picks = choices[person] || [];
+      const valid = picks.some(friend => group.includes(friend));
+      if (!valid) return false;
+    }
+  }
+  return true;
+}
+
+function normalizePartition(partition) {
+  const sortedGroups = partition.map(g => [...g].sort((a,b)=>a-b));
+  sortedGroups.sort((a,b)=>a[0]-b[0]);
+  return sortedGroups;
+}
+
+function runSimulation() {
+  const choices = getChoices();
+  const people = Array.from({length: N}, (_, i) => i + 1);
+
+  let partitions = generatePartitions(people);
+  let validPartitions = [];
+  let seen = new Set();
+
+  partitions.forEach(p => {
+    if (isValidPartition(p, choices)) {
+      const norm = normalizePartition(p);
+      const key = JSON.stringify(norm);
+      if (!seen.has(key)) {
+        seen.add(key);
+        validPartitions.push(norm);
+      }
+    }
+  });
+
+  const patternCounts = {};
+
+  validPartitions.forEach(p => {
+    const sizes = p.map(g => g.length).sort((a,b)=>b-a);
+    const key = JSON.stringify(sizes);
+    patternCounts[key] = (patternCounts[key] || 0) + 1;
+  });
+
+  let html = `<h3>Total valid groupings: ${validPartitions.length}</h3>`;
+
+  html += `<h3>All Valid Partitions</h3><pre>`;
+  validPartitions.forEach(p => {
+    html += p.map(g => `(${g.join(", ")})`).join(" ") + "\n";
+  });
+  html += `</pre>`;
+
+  html += `<h3>Summary</h3><ul>`;
+  Object.keys(patternCounts).forEach(key => {
+    const count = patternCounts[key];
+    const percent = ((count / validPartitions.length) * 100).toFixed(2);
+    html += `<li>${key}: ${count} (${percent}%)</li>`;
+  });
+  html += `</ul>`;
+
+  document.getElementById("output").innerHTML = html;
+}
+
+// Initialize with default inputs
+generateInputs();
+</script>
+
+</body>
+</html>
