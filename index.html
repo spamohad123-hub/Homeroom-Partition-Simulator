@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Homeroom Partition Simulator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; margin: 0; background: #f5f7fb; color: #333; }
+    .container { max-width: 1000px; margin: auto; padding: 20px; }
+    .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 20px; }
+    .people-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+    .person-box { border: 1px solid #e1e8ed; border-radius: 10px; padding: 12px; background: #fcfdfe; }
+    
+    .person-header { display: flex; align-items: center; margin-bottom: 10px; }
+    .person-id { font-size: 15px; font-weight: 600; color: #4a90e2; margin-right: 8px; background: #eef5ff; padding: 2px 6px; border-radius: 4px; }
+    .name-input { font-weight: 600; font-size: 14px; border: 1px dashed #ccc; background: transparent; padding: 4px; width: 100%; box-sizing: border-box; }
+    
+    input[type="number"] { width: 100%; margin-top: 8px; padding: 8px; border-radius: 6px; border: 1px solid #ccd6dd; font-size: 14px; box-sizing: border-box; }
+    
+    button { padding: 12px 20px; border: none; border-radius: 8px; background: #4a90e2; color: white; cursor: pointer; font-size: 14px; font-weight: 600; margin-top: 10px; margin-right: 10px; }
+    button:hover { background: #357bd8; }
+    #recommendedBtn { background: #27ae60; }
+    #recommendedBtn:hover { background: #219150; }
+    #copyBtn { background: #8e44ad; width: 100%; margin-top: 15px; font-size: 15px; }
+    #copyBtn:hover { background: #732d91; }
+    
+    pre { background: #2d3436; color: #dfe6e9; padding: 15px; border-radius: 8px; overflow-x: auto; white-space: pre-wrap; font-size: 13px; }
+    .summary-list { list-style: none; padding: 0; }
+    .summary-list li { padding: 10px; border-bottom: 1px solid #eee; font-size: 14px; line-height: 1.5; }
+    .highlight { color: #27ae60; font-weight: 600; }
+    .pair-highlight { color: #e67e22; font-weight: 600; }
+    #sizeWarning { display: none; color: #e74c3c; font-size: 13px; font-weight: 600; margin-top: 8px; }
+    
+    .setting-row { display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap; }
+    .setting-item { display: flex; flex-direction: column; }
+    .setting-item label { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Homeroom Partition Simulator</h1>
+  
+  <div class="card">
+    <div class="setting-row">
+      <div class="setting-item">
+        <label>Number of friends:</label>
+        <input type="number" id="numPeople" value="7" min="2" style="width: 80px;" oninput="checkWarning()" />
+      </div>
+      <div class="setting-item">
+        <label>Max Class Size:</label>
+        <input type="number" id="maxRoomSize" value="38" min="1" style="width: 80px;" />
+      </div>
+      <div style="padding-bottom: 2px;">
+        <button onclick="generateInputs()">1. Update Setup</button>
+        <button id="recommendedBtn" onclick="fillRecommended()">2. Apply Optimized Strategy</button>
+      </div>
+    </div>
+    <div id="sizeWarning">⚠️ Warning: Calculating for 9+ people may significantly slow down or freeze your browser.</div>
+  </div>
+
+  <div class="card">
+    <h2>Define Choices</h2>
+    <p style="font-size: 13px; color: #666; margin-top: -10px;">Type names in the dashed boxes. Use the blue <strong>ID numbers</strong> to make your picks.</p>
+    <div id="peopleContainer" class="people-grid"></div>
+    <br>
+    <button onclick="runSimulation()" style="background: #2c3e50; width: 100%;">3. Run Math Simulation</button>
+  </div>
+
+  <div class="card">
+    <h2>Results</h2>
+    <div id="output"><em>Ready to simulate.</em></div>
+  </div>
+</div>
+
+<script>
+let N = 7;
+
+function checkWarning() {
+  const inputVal = parseInt(document.getElementById("numPeople").value);
+  document.getElementById("sizeWarning").style.display = (inputVal > 8) ? "block" : "none";
+}
+
+function generateInputs() {
+  N = parseInt(document.getElementById("numPeople").value);
+  const container = document.getElementById("peopleContainer");
+  container.innerHTML = "";
+  for (let i = 1; i <= N; i++) {
+    const div = document.createElement("div");
+    div.className = "person-box";
+    div.innerHTML = `
+      <div class="person-header">
+        <span class="person-id">#${i}</span>
+        <input type="text" id="name${i}" class="name-input" value="Person ${i}" />
+      </div>
+      <input type="number" placeholder="Pick 1 (ID #)" id="p${i}a" />
+      <input type="number" placeholder="Pick 2 (ID #)" id="p${i}b" />
+      <input type="number" placeholder="Pick 3 (ID #)" id="p${i}c" />`;
+    container.appendChild(div);
+  }
+}
+
+function fillRecommended() {
+  // Circular Strategy: Each person picks the next 3 people.
+  const picksCount = Math.min(3, N - 1);
+  for (let i = 1; i <= N; i++) {
+    const picks = [];
+    for (let j = 1; j <= picksCount; j++) {
+      picks.push(((i + j - 1) % N) + 1);
+    }
+    document.getElementById(`p${i}a`).value = picks[0] || "";
+    document.getElementById(`p${i}b`).value = picks[1] || "";
+    document.getElementById(`p${i}c`).value = picks[2] || "";
+  }
+}
+
+function getNames() {
+  const names = {};
+  for (let i = 1; i <= N; i++) {
+    names[i] = document.getElementById(`name${i}`).value.trim() || `Person ${i}`;
+  }
+  return names;
+}
+
+function getChoices() {
+  const choices = {};
+  for (let i = 1; i <= N; i++) {
+    const a = parseInt(document.getElementById(`p${i}a`).value);
+    const b = parseInt(document.getElementById(`p${i}b`).value);
+    const c = parseInt(document.getElementById(`p${i}c`).value);
+    choices[i] = [a, b, c].filter(x => !isNaN(x));
+  }
+  return choices;
+}
+
+function generatePartitions(arr) {
+  if (arr.length === 0) return [[]];
+  const first = arr[0], rest = generatePartitions(arr.slice(1)), result = [];
+  rest.forEach(partition => {
+    for (let i = 0; i < partition.length; i++) {
+      const newP = partition.map(g => [...g]);
+      newP[i].unshift(first);
+      result.push(newP);
+    }
+    result.push([[first], ...partition]);
+  });
+  return result;
+}
+
+function isValidPartition(partition, choices, maxRoom) {
+  return partition.every(group => {
+    if (group.length > maxRoom) return false;
+    return group.every(p => (choices[p] || []).some(f => group.includes(f)));
+  });
+}
+
+function copyStrategy() {
+  const names = getNames();
+  const choices = getChoices();
+  let text = "Hey guys! To maximize our chances of staying together, here is exactly who everyone should pick:\n\n";
+  for (let i = 1; i <= N; i++) {
+    const pickNames = (choices[i] || []).map(p => names[p]).join(", ");
+    text += `✅ ${names[i]} picks: ${pickNames}\n`;
+  }
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById("copyBtn");
+    btn.innerText = "📋 Copied!";
+    setTimeout(() => { btn.innerText = "💬 Copy Strategy for Group Chat"; }, 2000);
+  });
+}
+
+function runSimulation() {
+  const choices = getChoices();
+  const names = getNames();
+  const maxRoom = parseInt(document.getElementById("maxRoomSize").value) || N;
+  const people = Array.from({length: N}, (_, i) => i + 1);
+  
+  let partitions = generatePartitions(people), valid = [], seen = new Set();
+  
+  partitions.forEach(p => {
+    if (isValidPartition(p, choices, maxRoom)) {
+      const norm = p.map(g => [...g].sort((a,b)=>a-b)).sort((a,b)=>a[0]-b[0]);
+      const key = JSON.stringify(norm);
+      if (!seen.has(key)) { seen.add(key); valid.push(norm); }
+    }
+  });
+
+  if (valid.length === 0) {
+    document.getElementById("output").innerHTML = `<h3>Total Valid Outcomes: 0</h3><p>No valid groupings found for these picks within a class size of ${maxRoom}.</p>`;
+    return;
+  }
+
+  // 1. Probability Stats
+  const patternCounts = {};
+  const pairCounts = {};
+  for(let i=1; i<=N; i++) for(let j=i+1; j<=N; j++) pairCounts[`${i}&${j}`] = 0;
+
+  valid.forEach(p => {
+    const key = p.map(g => g.length).sort((a,b)=>b-a).join("-");
+    patternCounts[key] = (patternCounts[key] || 0) + 1;
+    p.forEach(group => {
+      if (group.length >= 2) {
+        for (let i = 0; i < group.length; i++) {
+          for (let j = i + 1; j < group.length; j++) {
+            pairCounts[[group[i], group[j]].sort((a,b)=>a-b).join("&")]++;
+          }
+        }
+      }
+    });
+  });
+
+  // 2. Build HTML
+  let html = `<h3>Total Valid Outcomes: ${valid.length}</h3>`;
+  
+  html += `<h4>Probability Summary:</h4><ul class="summary-list">`;
+  Object.keys(patternCounts).sort().reverse().forEach(key => {
+    const count = patternCounts[key];
+    const percent = ((count / valid.length) * 100).toFixed(1);
+    const status = (key == N) ? '<span class="highlight">(Everyone Together!)</span>' : '(Group Split)';
+    html += `<li><strong>Split Pattern ${key}:</strong> ${count} outcome(s) — <strong>${percent}%</strong> ${status}</li>`;
+  });
+  html += `</ul>`;
+
+  // Pair Analysis
+  const countsMap = {};
+  for (const [k, v] of Object.entries(pairCounts)) {
+    if (!countsMap[v]) countsMap[v] = [];
+    const ids = k.split("&");
+    countsMap[v].push(`${names[ids[0]]} & ${names[ids[1]]}`);
+  }
+  const uniqueCounts = Object.keys(countsMap).map(Number).sort((a, b) => b - a);
+
+  if (uniqueCounts.length === 1) {
+    html += `<h4>Most Often Together:</h4><ul class="summary-list"><li>All pairs have the exact same probability.</li></ul>`;
+  } else {
+    // Check for outlier logic (dominant count)
+    const totalPossiblePairs = (N * (N - 1)) / 2;
+    let dominantCount = null;
+    for (const c of uniqueCounts) { if (countsMap[c].length >= totalPossiblePairs - 3 && countsMap[c].length < totalPossiblePairs) dominantCount = c; }
+
+    if (dominantCount !== null) {
+      html += `<h4>Outlier Pairings:</h4><ul class="summary-list">`;
+      uniqueCounts.forEach(c => {
+        if (c !== dominantCount) {
+          countsMap[c].forEach(pName => {
+            html += `<li><strong>${pName}</strong> — Together in ${c} scenarios <span class="pair-highlight">(${((c/valid.length)*100).toFixed(1)}%)</span></li>`;
+          });
+        }
+      });
+      html += `</ul>`;
+    } else {
+      html += `<h4>Most Often Together (Top 3):</h4><ul class="summary-list">`;
+      for (let i = 0; i < Math.min(3, uniqueCounts.length); i++) {
+        const c = uniqueCounts[i];
+        html += `<li><strong>Rank ${i+1}</strong> (${((c/valid.length)*100).toFixed(1)}%): <span class="pair-highlight">${countsMap[c].join(" | ")}</span></li>`;
+      }
+      html += `</ul>`;
+    }
+  }
+
+  html += `<h4>All Valid Room Assignments:</h4><pre>`;
+  valid.forEach(p => { 
+    html += p.map(g => `[Room: ${g.map(id => names[id]).join(", ")}]`).join("  ") + "\n"; 
+  });
+  html += `</pre>`;
+  html += `<button id="copyBtn" onclick="copyStrategy()">💬 Copy Strategy for Group Chat</button>`;
+
+  document.getElementById("output").innerHTML = html;
+}
+
+window.onload = generateInputs;
+</script>
+</body>
+</html>
