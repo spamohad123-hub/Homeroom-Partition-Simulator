@@ -4,7 +4,7 @@
 
 The **Friendship Partition Simulator** is a lightweight, high-performance web tool designed to help student groups navigate "friendship choice" forms. By using a circular "Daisy Chain" strategy, this tool calculates the mathematical probability of staying together based on your class's specific constraints.
 
-[Insert Link to your GitHub Pages URL here]
+(https://spamohad123-hub.github.io/Homeroom-Partition-Simulator/)
 
 ---
 
